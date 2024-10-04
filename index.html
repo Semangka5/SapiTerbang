@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sapi Terbang</title>
+    <link rel="icon" type="image/x-icon" href="sapi.png">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
+        #game-container {
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(to bottom, #87CEEB, #E0F6FF);
+            position: relative;
+            overflow: hidden;
+        }
+        @media (max-width: 768px) {
+            #game-container {
+                aspect-ratio: 9 / 16;
+            }
+            #cow {
+                width: 20% !important;
+            }
+            #pipe-top, #pipe-bottom {
+                width: 30% !important;
+            }
+        }
+        @media (min-width: 769px) {
+            #game-container {
+                aspect-ratio: 16 / 9;
+            }
+            #jump-button {
+                display: none !important;
+            }
+        }
+        #toast {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 5px;
+            display: none;
+        }
+        .cloud {
+            position: absolute;
+            background-color: white;
+            border-radius: 50%;
+            z-index: 1;
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+        }
+        #sun {
+            position: absolute;
+            width: 60px;
+            height: 60px;
+            background: yellow;
+            border-radius: 50%;
+            top: 20px;
+            right: 20px;
+            box-shadow: 0 0 20px yellow;
+            z-index: 1;
+        }
+        #start-screen, #game-over-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+        }
+        #game-over-screen {
+            display: none;
+        }
+        #cow {
+            filter: drop-shadow(0 0 5px rgba(0, 0, 0, 0.5));
+        }
+        #pipe-top, #pipe-bottom {
+            box-shadow: inset -2px 0 5px rgba(0, 0, 0, 0.3);
+        }
+        .btn {
+            background-color: #FFA500;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-size: 1.5rem;
+            font-weight: bold;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+        }
+        .btn:hover {
+            transform: translateY(- 2px);
+            box-shadow: 0 6px 8px rgba(0,  0, 0, 0.2);
+        }
+        #jump-button {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #FFA500;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-size: 1.5rem;
+            font-weight: bold;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+            z-index: 1000;
+            display: none;
+        }
+        #jump-button:hover {
+            transform: translateX(-50%) translateY(-2px);
+            box-shadow: 0 6px 8px rgba(0, 0, 0, 0.2);
+        }
+    </style>
+</head>
+<body class="bg-blue-200 flex items-center justify-center h-screen w-screen overflow-hidden">
+    <div id="game-container">
+        <div id="sun"></div>
+        <img id="cow" src="sapi.png" class="absolute w-[10%] h-auto left-[10%] z-10" style="top: 50%;">
+        <div id="pipe-top" class="absolute w-[20%] bg-green-500 top-0 z-20"></div>
+        <div id="pipe-bottom" class="absolute w-[20%] bg-green-500 bottom-0 z-20"></div>
+        <div id="score" class="absolute top-4 left-4 text-white text-4xl font-bold z-30">0</div>
+        <div id="start-screen">
+            <h1 class="text-6xl font-bold text-white mb-8">Sapi Terbang</h1>
+            <button id="start-button" class="btn">Mulai Permainan</button>
+            <p class="text-white mt-8">Dibuat oleh <a href="https://github.com/athnf" class="text-blue-300">Najib</a></p>
+        </div>
+        <div id="game-over-screen">
+            <h1 class="text-6xl font-bold text-white mb-8">Game Over!</h1>
+            <p class="text-white text-3xl mb-8"> Skor Anda: <span id="game-over-score">0</span></p>
+            <button id="restart-button" class="btn">Mulai Ulang</button>
+        </div>
+        <button id="jump-button">Lompat</button>
+    </div>
+    <div id="toast"></div>
+    <audio id="point-sound" src="sound.mp3"></audio>
+
+    <script>
+        const gameContainer = document.getElementById('game-container');
+        const cow = document.getElementById('cow');
+        const pipeTop = document.getElementById('pipe-top');
+        const pipeBottom = document.getElementById('pipe-bottom');
+        const scoreElement = document.getElementById('score');
+        const startButton = document.getElementById('start-button');
+        const toast = document.getElementById('toast');
+        const pointSound = document.getElementById('point-sound');
+        const startScreen = document.getElementById('start-screen');
+        const gameOverScreen = document.getElementById('game-over-screen');
+        const gameOverScoreElement = document.getElementById('game-over-score');
+        const restartButton = document.getElementById('restart-button');
+        const jumpButton = document.getElementById('jump-button');
+
+        let cowY, velocity, gravity, pipeX, pipeGap, score, gameLoop;
+        let gameWidth, gameHeight;
+        let gameSpeed = 1;
+
+        function updateGameDimensions() {
+            gameWidth = gameContainer.clientWidth;
+            gameHeight = gameContainer.clientHeight;
+            gravity = gameHeight * 0.0005;
+            pipeGap = gameHeight * 0.4;
+            resetGame();
+        }
+
+        function updateCowPosition() {
+            velocity += gravity;
+            cowY += velocity;
+            cow.style.top = `${(cowY / gameHeight) * 100}%`;
+        }
+
+        function updatePipePosition() {
+            pipeX -= 0.5 * gameSpeed;
+            if (pipeX < -20) {
+                pipeX = 150;
+                score++;
+                scoreElement.textContent = score;
+                generatePipeHeights();
+                pointSound.play();
+                if (score % 5 === 0) {
+                    gameSpeed += 0.2;
+                    showToast(`Anda telah mencapai level ${score / 5 * 5}!`);
+                }
+            }
+ pipeTop.style.left = `${pipeX}% `;
+            pipeBottom.style.left = `${pipeX}%`;
+        }
+
+        function generatePipeHeights() {
+            let topHeight = Math.random() * (60 - (pipeGap / gameHeight * 100));
+            let bottomHeight = 100 - topHeight - (pipeGap / gameHeight * 100);
+            pipeTop.style.height = `${topHeight}%`;
+            pipeBottom.style.height = `${bottomHeight}%`;
+        }
+
+        function checkCollision() {
+            let cowRect = cow.getBoundingClientRect();
+            let topPipeRect = pipeTop.getBoundingClientRect();
+            let bottomPipeRect = pipeBottom.getBoundingClientRect();
+
+            if (
+                cowRect.right > topPipeRect.left &&
+                cowRect.left < topPipeRect.right &&
+                (cowRect.top < topPipeRect.bottom || cowRect.bottom > bottomPipeRect.top)
+            ) {
+                endGame();
+            }
+
+            if (cowY > gameHeight || cowY < 0) {
+                endGame();
+            }
+        }
+
+        function endGame() {
+            clearInterval(gameLoop);
+            gameOverScoreElement.textContent = score;
+            gameOverScreen.style.display = 'flex';
+            gameContainer.style.filter = 'grayscale(1)';
+            jumpButton.style.display = 'none';
+        }
+
+        function resetGame() {
+            cowY = gameHeight / 2;
+            velocity = 0;
+            pipeX = 150;
+            score = 0;
+            scoreElement.textContent = score;
+            startButton.style.display = 'block';
+            cow.style.top = '50%';
+            pipeTop.style.left = '150%';
+            pipeBottom.style.left = '150%';
+            gameSpeed = 1;
+            startScreen.style.display = 'flex';
+            gameOverScreen.style.display = 'none';
+            gameContainer.style.filter = 'grayscale(0)';
+            jumpButton.style.display = 'none';
+        }
+
+        function startGame() {
+            startScreen.style.display = 'none';
+            generatePipeHeights();
+            gameLoop = setInterval(() => {
+                updateCowPosition();
+                updatePipePosition();
+                checkCollision();
+            }, 16);
+            jumpButton.style.display = 'block';
+        }
+
+        function showToast(message) {
+            toast.textContent = message;
+            toast.style.display = 'block';
+            setTimeout(() => {
+                toast.style.display = 'none';
+            }, 2000);
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === ' ') {
+                velocity = -5;
+            }
+        });
+
+        jumpButton.addEventListener('click', () => {
+            velocity = -5;
+        });
+
+        startButton.addEventListener('click', startGame);
+        restartButton.addEventListener('click', resetGame);
+
+        window.addEventListener('resize', updateGameDimensions);
+        updateGameDimensions();
+
+        for (let i = 0; i < 10; i++) {
+            let cloud = document.createElement('div');
+            cloud.className = 'cloud';
+            cloud.style.width = `${Math.random() * 50}px`;
+            cloud.style.height = `${Math.random() * 20}px`;
+            cloud.style.top = `${Math.random() * 50}%`;
+            cloud.style.left = `${Math.random() * 100}%`;
+            gameContainer.appendChild(cloud);
+        }
+    </script>
+</body>
+</html>
